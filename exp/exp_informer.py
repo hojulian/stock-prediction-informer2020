@@ -66,7 +66,10 @@ class Exp_Informer(Exp_Basic):
             'ETTm2':Dataset_ETT_minute,
             'custom':Dataset_Custom,
         }
-        Data = data_dict[self.args.data]
+        if self.args.data in data_dict:
+            Data = data_dict[self.args.data]
+        else:
+            Data = Dataset_Custom
         timeenc = 0 if args.embed!='timeF' else 1
 
         if flag == 'test':
