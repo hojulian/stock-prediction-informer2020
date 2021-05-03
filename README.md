@@ -7,3 +7,5 @@ Modified version of Informer2020 for training for the 15 specified stocks for 5 
 ```bash
 python main_informer.py
 ```
+
+output directory: `./15stocks_checkpoints`

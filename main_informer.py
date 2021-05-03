@@ -117,7 +117,7 @@ for s in target_stocks:
         exp = Exp(args)
 
         # train
-        print(">>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>".format(setting))
+        print(f">>>>>>>start training : {setting}>>>>>>>>>>>>>>>>>>>>>>>>>>")
         _, score = exp.train(setting)
         if score < best_score:
             best_score = score
@@ -125,10 +125,14 @@ for s in target_stocks:
         print(f"======= BEST: {ii}: {best_score} =======")
 
         # test
-        print(">>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<".format(setting))
+        print(f">>>>>>>testing : {setting}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
         exp.test(setting)
 
         torch.cuda.empty_cache()
 
     file_map[s] = {"setting": best_setting, "score": best_score}
     print(file_map)
+
+print(">>>>>>> Showing best models for each stock >>>>>>>>>>>>>>>>>>>>>>>>>> ")
+for s, file in file_map.items():
+    print(f"{s}: file: ./15stocks_checkpoints/{file['setting']}")
