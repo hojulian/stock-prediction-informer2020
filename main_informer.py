@@ -1,102 +1,134 @@
-import argparse
-import os
-import torch
-
+from utils.tools import dotdict
 from exp.exp_informer import Exp_Informer
 from data.sector_data_parser import sector_data_parser
+import torch
 
-parser = argparse.ArgumentParser(description='[Informer] Long Sequences Forecasting')
+target_stocks = [
+    "VZ",
+    "T",
+    "WMT",
+    "MGM",
+    "GPS",
+    "GT",
+    "BBY",
+    "AFG",
+    "ERJ",
+    "MYE",
+    "ECPG",
+    "GCO",
+    "MPC",
+    "TRI",
+    "UFI",
+]
 
-parser.add_argument('--model', type=str, required=True, default='informer',help='model of experiment, options: [informer, informerstack, informerlight(TBD)]')
+file_map = {}
 
-parser.add_argument('--data', type=str, required=True, default='VZ', help='data')
-parser.add_argument('--root_path', type=str, default='./weighted_data/by_sector/', help='root path of the data file')
-parser.add_argument('--data_path', type=str, default='PublicUtilities.csv', help='data file')    
-parser.add_argument('--features', type=str, default='MS', help='forecasting task, options:[M, S, MS]; M:multivariate predict multivariate, S:univariate predict univariate, MS:multivariate predict univariate')
-parser.add_argument('--target', type=str, default='VZ Change', help='target feature in S or MS task')
-parser.add_argument('--freq', type=str, default='b', help='freq for time features encoding, options:[s:secondly, t:minutely, h:hourly, d:daily, b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min or 3h')
-parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of model checkpoints')
+for s in target_stocks:
+    args = dotdict()
 
-parser.add_argument('--seq_len', type=int, default=96, help='input sequence length of Informer encoder')
-parser.add_argument('--label_len', type=int, default=48, help='start token length of Informer decoder')
-parser.add_argument('--pred_len', type=int, default=24, help='prediction sequence length')
-# Informer decoder input: concat[start token series(label_len), zero padding series(pred_len)]
+    args.model = "informer"  # model of experiment, options: [informer, informerstack, informerlight(TBD)]
 
-parser.add_argument('--enc_in', type=int, default=33, help='encoder input size')
-parser.add_argument('--dec_in', type=int, default=33, help='decoder input size')
-parser.add_argument('--c_out', type=int, default=1, help='output size')
-parser.add_argument('--d_model', type=int, default=512, help='dimension of model')
-parser.add_argument('--n_heads', type=int, default=8, help='num of heads')
-parser.add_argument('--e_layers', type=int, default=2, help='num of encoder layers')
-parser.add_argument('--d_layers', type=int, default=1, help='num of decoder layers')
-parser.add_argument('--s_layers', type=str, default='3,2,1', help='num of stack encoder layers')
-parser.add_argument('--d_ff', type=int, default=2048, help='dimension of fcn')
-parser.add_argument('--factor', type=int, default=5, help='probsparse attn factor')
-parser.add_argument('--distil', action='store_false', help='whether to use distilling in encoder, using this argument means not using distilling', default=True)
-parser.add_argument('--dropout', type=float, default=0.05, help='dropout')
-parser.add_argument('--attn', type=str, default='prob', help='attention used in encoder, options:[prob, full]')
-parser.add_argument('--embed', type=str, default='timeF', help='time features encoding, options:[timeF, fixed, learned]')
-parser.add_argument('--activation', type=str, default='gelu',help='activation')
-parser.add_argument('--output_attention', action='store_true', help='whether to output attention in ecoder')
-parser.add_argument('--do_predict', action='store_true', help='whether to predict unseen future data')
+    args.data = s  # data
+    args.root_path = "./complete_data/"  # root path of data file
+    args.data_path = "master.csv"  # data file
+    args.features = "S"  # forecasting task, options:[M, S, MS]; M:multivariate predict multivariate, S:univariate predict univariate, MS:multivariate predict univariate
+    args.target = s  # target feature in S or MS task
+    args.freq = "d"  # freq for time features encoding, options:[s:secondly, t:minutely, h:hourly, d:daily, b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min or 3h
+    args.detail_freq = args.freq
+    args.checkpoints = "./15stocks_checkpoints"  # location of model checkpoints
+    args.results_path = "./15stocks_results/"  # location of results
 
-parser.add_argument('--num_workers', type=int, default=0, help='data loader num workers')
-parser.add_argument('--itr', type=int, default=2, help='experiments times')
-parser.add_argument('--train_epochs', type=int, default=6, help='train epochs')
-parser.add_argument('--batch_size', type=int, default=32, help='batch size of train input data')
-parser.add_argument('--patience', type=int, default=3, help='early stopping patience')
-parser.add_argument('--learning_rate', type=float, default=0.0001, help='optimizer learning rate')
-parser.add_argument('--des', type=str, default='test',help='exp description')
-parser.add_argument('--loss', type=str, default='mse',help='loss function')
-parser.add_argument('--lradj', type=str, default='type1',help='adjust learning rate')
-parser.add_argument('--use_amp', action='store_true', help='use automatic mixed precision training', default=False)
-parser.add_argument('--inverse', action='store_true', help='inverse output data', default=False)
+    args.seq_len = 130  # input sequence length of Informer encoder
+    args.label_len = 3  # start token length of Informer decoder
+    args.pred_len = 5  # prediction sequence length
+    # Informer decoder input: concat[start token series(label_len), zero padding series(pred_len)]
 
-parser.add_argument('--use_gpu', type=bool, default=True, help='use gpu')
-parser.add_argument('--gpu', type=int, default=0, help='gpu')
-parser.add_argument('--use_multi_gpu', action='store_true', help='use multiple gpus', default=False)
-parser.add_argument('--devices', type=str, default='0,1,2,3',help='device ids of multile gpus')
+    args.enc_in = 1  # encoder input size
+    args.dec_in = 1  # decoder input size
+    args.c_out = 1  # output size
+    args.factor = 8  # probsparse attn factor
+    args.d_model = 512  # dimension of model
+    args.n_heads = 8  # num of heads
+    args.e_layers = 2  # num of encoder layers
+    args.d_layers = 1  # num of decoder layers
+    # args.s_layers = [3, 2, 1] # num of stack encoder layers?
+    args.d_ff = 2048  # dimension of fcn in model
+    args.dropout = 0.05  # dropout
+    args.attn = "prob"  # attention used in encoder, options:[prob, full]
+    args.embed = "timeF"  # time features encoding, options:[timeF, fixed, learned]
+    args.activation = "gelu"  # activation
+    args.distil = True  # whether to use distilling in encoder
+    args.output_attention = False  # whether to output attention in ecoder
 
-args = parser.parse_args()
+    args.batch_size = 32
+    args.learning_rate = 0.0001
+    args.loss = "mse"
+    args.lradj = "type1"
+    args.use_amp = False  # whether to use automatic mixed precision training
 
-args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
+    args.num_workers = 0
+    args.itr = 10
+    args.train_epochs = 15
+    args.patience = 3
+    args.des = "exp"
 
-if args.use_gpu and args.use_multi_gpu:
-    args.devices = args.devices.replace(' ','')
-    device_ids = args.devices.split(',')
-    args.device_ids = [int(id_) for id_ in device_ids]
-    args.gpu = args.device_ids[0]
+    args.use_gpu = True if torch.cuda.is_available() else False
+    args.gpu = 0
 
-if args.data in sector_data_parser.keys():
-    data_info = sector_data_parser[args.data]
-    args.data_path = data_info['data']
-    args.target = data_info['T']
-    args.enc_in, args.dec_in, args.c_out = data_info[args.features]
+    args.use_multi_gpu = False
+    args.devices = "0,1,2,3"
 
-args.s_layers = [int(s_l) for s_l in args.s_layers.replace(' ','').split(',')]
-args.detail_freq = args.freq
-args.freq = args.freq[-1:]
+    if args.use_gpu and args.use_multi_gpu:
+        args.devices = args.devices.replace(" ", "")
+        device_ids = args.devices.split(",")
+        args.device_ids = [int(id_) for id_ in device_ids]
+        args.gpu = args.device_ids[0]
 
-print('Args in experiment:')
-print(args)
+    print(f"Trainging for {s}")
+    print(args)
 
-Exp = Exp_Informer
+    Exp = Exp_Informer
 
-for ii in range(args.itr):
-    # setting record of experiments
-    setting = '{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_at{}_fc{}_eb{}_dt{}_{}_{}'.format(args.model, args.data, args.features, 
-                args.seq_len, args.label_len, args.pred_len,
-                args.d_model, args.n_heads, args.e_layers, args.d_layers, args.d_ff, args.attn, args.factor, args.embed, args.distil, args.des, ii)
+    best_score = 100
+    best_setting = ""
+    for ii in range(args.itr):
+        # setting record of experiments
+        setting = "{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_at{}_fc{}_eb{}_dt{}_{}_{}".format(
+            args.model,
+            args.data,
+            args.features,
+            args.seq_len,
+            args.label_len,
+            args.pred_len,
+            args.d_model,
+            args.n_heads,
+            args.e_layers,
+            args.d_layers,
+            args.d_ff,
+            args.attn,
+            args.factor,
+            args.embed,
+            args.distil,
+            args.des,
+            ii,
+        )
 
-    exp = Exp(args) # set experiments
-    print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
-    exp.train(setting)
-    
-    print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
-    exp.test(setting)
+        # set experiments
+        exp = Exp(args)
 
-    if args.do_predict:
-        print('>>>>>>>predicting : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
-        exp.predict(setting, True)
+        # train
+        print(">>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>".format(setting))
+        _, score = exp.train(setting)
+        if score < best_score:
+            best_score = score
+            best_setting = setting
+        print(f"======= BEST: {ii}: {best_score} =======")
 
-    torch.cuda.empty_cache()
+        # test
+        print(">>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<".format(setting))
+        exp.test(setting)
+
+        torch.cuda.empty_cache()
+
+    file_map[s] = {"setting": best_setting, "score": best_score}
+    print(file_map)
